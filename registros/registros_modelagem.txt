@@ -1,0 +1,57 @@
+
+########## INÍCIO DE REGISTRO - MODELO Sklearn HistGBC 20240806-1129 ##########
+
+Informações geradas em 06-08-2024 às 12:00.
+Parâmetros do modelo:
+{'categorical_features': array(['cap-shape', 'cap-surface', 'cap-color', 'does-bruise-or-bleed',
+       'gill-attachment', 'gill-spacing', 'gill-color', 'stem-color',
+       'has-ring', 'ring-type', 'habitat', 'season'], dtype=object), 'class_weight': None, 'early_stopping': 'auto', 'interaction_cst': None, 'l2_regularization': 0.0, 'learning_rate': 0.011, 'loss': 'log_loss', 'max_bins': 255, 'max_depth': 16, 'max_features': 1.0, 'max_iter': 1500, 'max_leaf_nodes': 32, 'min_samples_leaf': 20, 'monotonic_cst': None, 'n_iter_no_change': 10, 'random_state': 1, 'scoring': 'loss', 'tol': 1e-07, 'validation_fraction': 0.1, 'verbose': 1, 'warm_start': False}
+   --> Score local do modelo (MCC): 0.9782481776568968
+
+########## FINAL DE REGISTRO - MODELO Sklearn HistGBC 20240806-1129 ##########
+
+
+
+########## INÍCIO DE REGISTRO - MODELO CatBoost Classifier 20240806-1239 ##########
+
+Informações registradas em 06-08-2024 às 13:04.
+
+Parâmetros do modelo:
+{'iterations': 1000, 'learning_rate': 0.001, 'depth': 17, 'loss_function': 'Logloss', 'thread_count': 12, 'random_seed': 1, 'target_border': 0.65, 'eval_metric': 'MCC', 'bagging_temperature': 7, 'gpu_ram_part': 0.2, 'boosting_type': 'Plain', 'task_type': 'CPU', 'bootstrap_type': 'MVS', 'early_stopping_rounds': 500, 'cat_features': array(['cap-shape', 'cap-surface', 'cap-color', 'does-bruise-or-bleed',
+       'gill-attachment', 'gill-spacing', 'gill-color', 'stem-color',
+       'has-ring', 'ring-type', 'habitat', 'season'], dtype=object), 'grow_policy': 'Lossguide', 'min_child_samples': 39, 'max_leaves': 32, 'score_function': 'L2'}
+
+   --> Score local do modelo (MCC): 0.87983
+
+########## FINAL DE REGISTRO - MODELO CatBoost Classifier 20240806-1239 ##########
+
+
+
+########## INÍCIO DE REGISTRO - MODELO CatBoost Classifier 20240806-1325 ##########
+
+Informações registradas em 06-08-2024 às 13:43.
+
+Parâmetros do modelo:
+{'iterations': 1000, 'learning_rate': 0.011, 'depth': 17, 'loss_function': 'Logloss', 'thread_count': 12, 'random_seed': 1, 'target_border': 0.51, 'eval_metric': 'MCC', 'bagging_temperature': 5, 'boosting_type': 'Plain', 'task_type': 'CPU', 'bootstrap_type': 'MVS', 'early_stopping_rounds': 500, 'cat_features': array(['cap-shape', 'cap-surface', 'cap-color', 'does-bruise-or-bleed',
+       'gill-attachment', 'gill-spacing', 'gill-color', 'stem-color',
+       'has-ring', 'ring-type', 'habitat', 'season'], dtype=object), 'grow_policy': 'Lossguide', 'min_child_samples': 39, 'max_leaves': 32}
+
+   --> Score local do modelo (MCC): 0.97246
+
+########## FINAL DE REGISTRO - MODELO CatBoost Classifier 20240806-1325 ##########
+
+
+
+########## INÍCIO DE REGISTRO - MODELO XGBoost Classifier 20240806-1426 ##########
+
+Informações registradas em 06-08-2024 às 14:29.
+
+Parâmetros do modelo:
+{'objective': 'binary:hinge', 'base_score': None, 'booster': 'gbtree', 'callbacks': None, 'colsample_bylevel': None, 'colsample_bynode': None, 'colsample_bytree': None, 'device': 'cuda', 'early_stopping_rounds': 300, 'enable_categorical': True, 'eval_metric': 'error', 'feature_types': None, 'gamma': None, 'grow_policy': None, 'importance_type': None, 'interaction_constraints': None, 'learning_rate': None, 'max_bin': None, 'max_cat_threshold': None, 'max_cat_to_onehot': None, 'max_delta_step': None, 'max_depth': 14, 'max_leaves': 135, 'min_child_weight': None, 'missing': nan, 'monotone_constraints': None, 'multi_strategy': None, 'n_estimators': 500, 'n_jobs': None, 'num_parallel_tree': None, 'random_state': None, 'reg_alpha': None, 'reg_lambda': None, 'sampling_method': None, 'scale_pos_weight': None, 'subsample': None, 'tree_method': 'approx', 'validate_parameters': None, 'verbosity': None, 'nthread': 12, 'eta': 0.011, 'seed': 1}
+
+   --> Score local do modelo (MCC): 0.84702
+
+########## FINAL DE REGISTRO - MODELO XGBoost Classifier 20240806-1426 ##########
+
+
+

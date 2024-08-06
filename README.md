@@ -22,7 +22,11 @@ This is still a work in progress. The .py file is not completed yet and may cont
 
 !END OF IMPORTANT NOTICE!
 
-I just got registered in this challenge, I'll code a simple model with XGB/CatBoost/LightGBM and assess the results. If the results aren't the best, I'm gonna code a neural network model, if there are enough observations for training. 
+First naive model using sklearn `HistGradientBoostingClassifier` scores 0.86xx locally. Adjusting some hyperparameters I managed to get to 0.97824 local score, which after submission granted a 0.97828 score on site. Great news that the MCC scores match.
+
+I tried another two naive classification models, namely `CatBoostClassifier` and `XGBoostClassifier`, the former performing 0.9725 score and the latter just around 0.85xx. The actual scores and the models' parameters can bee seen in 'registros_resultados.csv' for the scores and in 'registros_modelagem.txt' for the parameters in each and every instance recorded, both within 'registros' directory.
+
+I'm gonna try out some hyperparamenter tuning both in `CatBoostClassifier` and `HistGradientBoostingClassifier` in order to get a better score and maybe break the 0.98xx score threshold.
 
 ## Final score and classification
 To be seen yet. Let's see what my models can do here.

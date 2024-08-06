@@ -12,14 +12,17 @@ import os
 import io
 import matplotlib.pyplot as plt
 from datetime import datetime
+from sklearn.ensemble import HistGradientBoostingClassifier
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import matthews_corrcoef
 from sklearn.preprocessing import normalize
+from catboost import CatBoostClassifier, Pool
+import xgboost as xgb
 pd.options.display.float_format = '{:.4f}'.format
 %autoindent
 
 # Some functions for recording the models development
-def registro_modelo(model):
+def modelo_tf_string(model):
     stream = io.StringIO()
     model.summary(print_fn=lambda x: stream.write(x + '\n'))
     summary_string = stream.getvalue()
@@ -35,9 +38,51 @@ def realiza_registro_tf():
         registros.write("########## INÍCIO DE REGISTRO - MODELO TensorFlow " + nome_modelo + " ##########\n")
         registros.write("\nInformações geradas em " + datetime.now().strftime("%d-%m-%Y") + " às " + datetime.now().strftime("%H:%M") + ".\n")
         registros.write('Parâmetros do modelo:\n')
-        registros.write(registro_modelo(modelo))
+        registros.write(modelo_tf_string(modelo))
         registros.write("   --> Score local do modelo (accuracy): " + str(score))
         registros.write("\n\n########## FINAL DE REGISTRO - MODELO TensorFlow " + nome_modelo + " ##########\n\n\n\n")
+    print('Novo registro realizado com sucesso!')
+
+
+def realiza_registro_skl():
+    registro_geral = pd.read_csv('registros/registros_resultados.csv')
+    registro_geral = pd.concat([registro_geral, registro_atual], ignore_index=True)
+    registro_geral.to_csv('registros/registros_resultados.csv', index=False) 
+    with open("./registros/registros_modelagem.txt", "a") as registros:
+        registros.write("########## INÍCIO DE REGISTRO - MODELO Sklearn HistGBC " + nome_modelo + " ##########\n")
+        registros.write("\nInformações registradas em " + datetime.now().strftime("%d-%m-%Y") + " às " + datetime.now().strftime("%H:%M") + ".\n\n")
+        registros.write('Parâmetros do modelo:\n')
+        registros.write(str(skl_hgb.get_params()))
+        registros.write("\n\n   --> Score local do modelo (MCC): " + str(round(score_skl, 5)))
+        registros.write("\n\n########## FINAL DE REGISTRO - MODELO Sklearn HistGBC " + nome_modelo + " ##########\n\n\n\n")
+    print('Novo registro realizado com sucesso!')
+
+
+def realiza_registro_cat():
+    registro_geral = pd.read_csv('registros/registros_resultados.csv')
+    registro_geral = pd.concat([registro_geral, registro_atual], ignore_index=True)
+    registro_geral.to_csv('registros/registros_resultados.csv', index=False)
+    with open("./registros/registros_modelagem.txt", "a") as registros:
+        registros.write("########## INÍCIO DE REGISTRO - MODELO CatBoost Classifier " + nome_modelo + " ##########\n")
+        registros.write("\nInformações registradas em " + datetime.now().strftime("%d-%m-%Y") + " às " + datetime.now().strftime("%H:%M") + ".\n\n")
+        registros.write('Parâmetros do modelo:\n')
+        registros.write(str(catboost.get_params()))
+        registros.write("\n\n   --> Score local do modelo (MCC): " + str(round(score_cat, 5)))
+        registros.write("\n\n########## FINAL DE REGISTRO - MODELO CatBoost Classifier " + nome_modelo + " ##########\n\n\n\n")
+    print('Novo registro realizado com sucesso!')
+
+
+def realiza_registro_xgb():
+    registro_geral = pd.read_csv('registros/registros_resultados.csv')
+    registro_geral = pd.concat([registro_geral, registro_atual], ignore_index=True)
+    registro_geral.to_csv('registros/registros_resultados.csv', index=False) 
+    with open("./registros/registros_modelagem.txt", "a") as registros:
+        registros.write("########## INÍCIO DE REGISTRO - MODELO XGBoost Classifier " + nome_modelo + " ##########\n")
+        registros.write("\nInformações registradas em " + datetime.now().strftime("%d-%m-%Y") + " às " + datetime.now().strftime("%H:%M") + ".\n\n")
+        registros.write('Parâmetros do modelo:\n')
+        registros.write(str(classif_xgb.get_params()))
+        registros.write("\n\n   --> Score local do modelo (MCC): " + str(round(score_xgb, 5)))
+        registros.write("\n\n########## FINAL DE REGISTRO - MODELO XGBoost Classifier " + nome_modelo + " ##########\n\n\n\n")
     print('Novo registro realizado com sucesso!')
 
 
@@ -108,44 +153,203 @@ treino['cap-diameter'] = treino['cap-diameter'].fillna(treino['cap-diameter'].me
 treino_na = treino.fillna('nan')
 teste_na = teste.fillna('nan')
 
-
-###
-# ÁREA DE TESTES
-###
-
 # Normalizing the numeric values just before modeling, so I'm able to test
 # the results with different normalization hyperparameters
+categories = treino.drop('class', axis=1).columns[treino.drop('class', axis=1).dtypes == 'object'].values
 numerics = treino.columns[treino.dtypes == 'float64']
 norm = 'l1'  # 'l1' or 'l2'
 treino_na[numerics] = normalize(treino_na[numerics], norm=norm)
 teste_na[numerics] = normalize(teste_na[numerics], norm=norm)
 
 # Train/test split
+treino_na = treino_na.drop('id', axis=1)
+teste_na = teste_na.drop('id', axis=1)
 tamanho_treino = 0.80
 target = 'class'
-treino_x, teste_x, treino_y, teste_y = train_test_split(treino_na, teste_na,
+
+treino_x, teste_x, treino_y, teste_y = train_test_split(treino_na.drop(target, axis=1), treino_na[target],
                                                         train_size=tamanho_treino,
                                                         random_state=1)
 
 
+###
+# SKLEARN MODEL
+###
+nome_modelo = datetime.now().strftime("%Y%m%d-%H%M")
+modelo_skl = 'Sklearn HistGBC'
+skl_hgb = HistGradientBoostingClassifier(loss='log_loss',
+                                         learning_rate=0.011,
+                                         max_iter=1500,
+                                         max_leaf_nodes=32,
+                                         max_depth=16,
+                                         categorical_features=categories,
+                                         scoring='loss',
+                                         random_state=1,
+                                         verbose=1
+                                         )
+
+skl_hgb.fit(treino_x, treino_y)
+ypred_skl = skl_hgb.predict(teste_x)
+score_skl = matthews_corrcoef(teste_y, ypred_skl)
+print(f'Score Sklearn MCC local: {score_skl:.5f}')
+
+# Record the informations regarding the model and score in local files
+registro_geral = pd.read_csv('registros/registros_resultados.csv')
+registro_atual = pd.DataFrame([[pd.to_datetime(nome_modelo), modelo_skl, round(score_skl, 5)]])
+registro_atual.columns = ('Dia e Hora', 'Modelo', 'Score (MCC)')
+if registro_geral.iloc[registro_geral.shape[0]-1]['Dia e Hora'] == str(pd.to_datetime(nome_modelo)): 
+    print('Trabalhando com mesmo modelo')
+else:
+    realiza_registro_skl()
+
+# Estimates the challenge values, creating the file for submission on Kaggle
+y_skl_final = skl_hgb.predict(teste_na)
+submissao = pd.read_parquet('submission.parquet')
+submissao['class'] = y_skl_final
+submissao.to_csv('submissoes/submissao_sklearn_'+nome_modelo+'.csv', index=False)
 
 
+###
+# CATBOOST
+###
+
+# CatBoost needs the target variable to be binary (1 or 0), so the backup and transformations below
+treino_yback = treino_y.copy()
+teste_yback = teste_y.copy()
+treino_y[treino_y == 'e'] = 1
+treino_y[treino_y == 'p'] = 0
+teste_y[teste_y == 'e'] = 1
+teste_y[teste_y == 'p'] = 0
+
+nome_modelo = datetime.now().strftime("%Y%m%d-%H%M")
+modelo_cat = 'CatBoostClassifier'
+catboost = CatBoostClassifier(cat_features=categories,
+                              loss_function='Logloss',
+                              eval_metric='MCC',
+                              iterations=1000,
+                              learning_rate=0.011,
+                              random_seed=1,
+                              bootstrap_type='MVS',
+                              bagging_temperature=5,
+                              depth=17,
+                              early_stopping_rounds=500,
+                              thread_count=12,
+                              task_type='CPU',
+                              target_border=0.51,
+                              grow_policy='Lossguide',
+                              min_child_samples=39,
+                              max_leaves=32,
+                              boosting_type='Plain'
+                              )
+
+pool_treino = Pool(treino_x,
+                   label=treino_y,
+                   cat_features=categories)
+pool_teste = Pool(teste_x,
+                  label=teste_y,
+                  cat_features=categories)
+
+catboost.fit(pool_treino,
+             eval_set=(pool_teste),
+             verbose=100)
+
+ypred_cat = catboost.predict(teste_x)
+score_cat = matthews_corrcoef(teste_y.convert_dtypes('numeric'), ypred_cat)
+print(f'Score CatBoost MCC local: {score_cat:.5f}')
 
 
+# Record the informations regarding the model and score in local files
+registro_geral = pd.read_csv('registros/registros_resultados.csv')
+registro_atual = pd.DataFrame([[pd.to_datetime(nome_modelo), modelo_cat, round(score_cat, 5)]])
+registro_atual.columns = ('Dia e Hora', 'Modelo', 'Score (MCC)')
+if registro_geral.iloc[registro_geral.shape[0]-1]['Dia e Hora'] == str(pd.to_datetime(nome_modelo)): 
+    print('Trabalhando com mesmo modelo')
+else:
+    realiza_registro_cat()
+
+# Estimates the challenge values, creating the file for submission on Kaggle
+y_cat_final = catboost.predict(teste_na)
+submissao = pd.read_parquet('submission.parquet')
+submissao['class'] = y_cat_final
+mask1 = submissao['class'] == 1
+mask0 = submissao['class'] == 0
+submissao.loc[mask1, 'class'] = 'e'
+submissao.loc[mask0, 'class'] = 'p'
+submissao.to_csv('submissoes/submissao_catboost_'+nome_modelo+'.csv', index=False)
 
 
+#
+#
+#
+#
+#
 
 
+###
+# ÁREA DE TESTES
+###
 
 
+###
+# XGBOOST
+###
+# XGBoost also needs the target variable to be binary
+treino_yback = treino_y.copy()
+teste_yback = teste_y.copy()
+treino_y[treino_y == 'e'] = 1
+treino_y[treino_y == 'p'] = 0
+teste_y[teste_y == 'e'] = 1
+teste_y[teste_y == 'p'] = 0
 
+treino_x[categories] = treino_x[categories].astype('category')
+teste_x[categories] = teste_x[categories].astype('category')
 
+nome_modelo = datetime.now().strftime("%Y%m%d-%H%M")
+modelo_xgb = 'XGB Classifier'
+classif_xgb = xgb.XGBClassifier(booster="gbtree",
+                                tree_method="approx",
+                                n_estimators=500,
+                                early_stopping_rounds=300,
+                                device="cuda",
+                                nthread=12,
+                                eta=0.011,
+                                max_depth=14,
+                                max_leaves=135,
+                                objective='binary:hinge',
+                                eval_metric='error',
+                                seed=1,
+                                enable_categorical=True
+                                )
 
+classif_xgb.fit(treino_x, treino_y,
+                eval_set=[(treino_x, treino_y), (teste_x, teste_y)],
+                verbose=100)
+ypred_xgb = classif_xgb.predict(teste_x)
+score_xgb = matthews_corrcoef(teste_y.convert_dtypes('numeric'), ypred_xgb)
+print(f'Score Sklearn MCC local: {score_xgb:.5f}')
 
+# Record the informations regarding the model and score in local files
+registro_geral = pd.read_csv('registros/registros_resultados.csv')
+registro_atual = pd.DataFrame([[pd.to_datetime(nome_modelo), modelo_xgb, round(score_xgb, 5)]])
+registro_atual.columns = ('Dia e Hora', 'Modelo', 'Score (MCC)')
+if registro_geral.iloc[registro_geral.shape[0]-1]['Dia e Hora'] == str(pd.to_datetime(nome_modelo)): 
+    print('Trabalhando com mesmo modelo')
+else:
+    realiza_registro_xgb()
 
-
+# Estimates the challenge values, creating the file for submission on Kaggle
+y_xgb_final = classif_xgb.predict(teste_na)
+submissao = pd.read_parquet('submission.parquet')
+submissao['class'] = y_xgb_final
+submissao.to_csv('submissoes/submissao_xgbclassifier_'+nome_modelo+'.csv', index=False)
 
 
 
 treino.to_parquet('treino_polido.parquet')
 teste.to_parquet('teste_polido.parquet')
+
+treino_y = treino_yback.copy()
+teste_y = teste_yback.copy()
+
+registro_geral = pd.read_csv('registros/registros_resultados.csv')
+registro_geral
