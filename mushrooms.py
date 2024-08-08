@@ -4,22 +4,22 @@
 # - The parquet files (treino_polido/teste_polido) have only categorical NaN values, all other information is already cleaned/set up.
 # - The categorical NaN values should have a proper imputation, maybe from Anacor to estabilish correlations and get it right
 # - Try to do an ensemble model with binary values, from sklearn and catboost
-# - On CatBoost model I've already tested grow_policy (best Depth), bootstrap_type (best MVS) and I was testing learning_rate (best 0.081 so far)
 
 # Importing necessary packages
 import pandas as pd
 import numpy as np
 import os
-#import tensorflow as tf
-#import io
+# import tensorflow as tf
+# import io
 import matplotlib.pyplot as plt
 from datetime import datetime
-from sklearn.ensemble import HistGradientBoostingClassifier
+# from sklearn.ensemble import HistGradientBoostingClassifier
 from sklearn.model_selection import train_test_split
-from sklearn.metrics import matthews_corrcoef
+from sklearn.metrics import matthews_corrcoef  # , fbeta_score, make_scorer
 from sklearn.preprocessing import normalize
+from sklearn.impute import KNNImputer
 from catboost import CatBoostClassifier, Pool
-import xgboost as xgb
+# import xgboost as xgb
 pd.options.display.float_format = '{:.4f}'.format
 %autoindent
 
@@ -100,8 +100,8 @@ os.chdir('/home/thiago/Documentos/MBA USP/Kaggle/Mushrooms/')
 #teste = teste_completo.copy()
 #treino = treino_completo.copy()
 
-teste = pd.read_parquet('teste_polido.parquet')
-treino = pd.read_parquet('treino_polido.parquet')
+teste = pd.read_parquet('datasets/teste_prednans.parquet')
+treino = pd.read_parquet('datasets/treino_prednans.parquet')
 
 # Checking for features null values over 50%, dropping off said features
 mask = (treino.isnull().sum()/treino.shape[0])*100 > 50
@@ -163,16 +163,17 @@ teste_na = teste.fillna('nan')
 categories = treino.drop('class', axis=1).columns[treino.drop('class', axis=1).dtypes == 'object'].values
 numerics = treino.columns[treino.dtypes == 'float64']
 norm = 'l1'  # 'l1' or 'l2'
+
 treino_na[numerics] = normalize(treino_na[numerics], norm=norm)
 teste_na[numerics] = normalize(teste_na[numerics], norm=norm)
 
 # Train/test split
-treino_na = treino_na.drop('id', axis=1)
-teste_na = teste_na.drop('id', axis=1)
+treino = treino.drop('id', axis=1)
+teste = teste.drop('id', axis=1)
 tamanho_treino = 0.80
 target = 'class'
 
-treino_x, teste_x, treino_y, teste_y = train_test_split(treino_na.drop(target, axis=1), treino_na[target],
+treino_x, teste_x, treino_y, teste_y = train_test_split(treino.drop(target, axis=1), treino[target],
                                                         train_size=tamanho_treino,
                                                         random_state=1)
 
@@ -182,13 +183,14 @@ treino_x, teste_x, treino_y, teste_y = train_test_split(treino_na.drop(target, a
 ###
 nome_modelo = datetime.now().strftime("%Y%m%d-%H%M")
 modelo_skl = 'Sklearn HistGBC'
+fbeta = make_scorer(fbeta_score, beta=0.66, pos_label='p')
 skl_hgb = HistGradientBoostingClassifier(loss='log_loss',
-                                         learning_rate=0.011,
-                                         max_iter=1500,
+                                         learning_rate=0.101,
+                                         max_iter=500,
                                          max_leaf_nodes=32,
                                          max_depth=16,
                                          categorical_features=categories,
-                                         scoring='loss',
+                                         scoring=fbeta,
                                          random_state=1,
                                          verbose=1
                                          )
@@ -198,18 +200,19 @@ ypred_skl = skl_hgb.predict(teste_x)
 score_skl = matthews_corrcoef(teste_y, ypred_skl)
 print(f'Score Sklearn MCC local: {score_skl:.5f}')
 
+
 # Record the informations regarding the model and score in local files
 registro_geral = pd.read_csv('registros/registros_resultados.csv')
 registro_atual = pd.DataFrame([[pd.to_datetime(nome_modelo), modelo_skl, round(score_skl, 5)]])
 registro_atual.columns = ('Dia e Hora', 'Modelo', 'Score (MCC)')
-if registro_geral.iloc[registro_geral.shape[0]-1]['Dia e Hora'] == str(pd.to_datetime(nome_modelo)): 
+if registro_geral.iloc[registro_geral.shape[0]-1]['Dia e Hora'] == str(pd.to_datetime(nome_modelo)):
     print('Trabalhando com mesmo modelo')
 else:
     realiza_registro_skl()
 
 # Estimates the challenge values, creating the file for submission on Kaggle
 y_skl_final = skl_hgb.predict(teste_na)
-submissao = pd.read_parquet('submission.parquet')
+submissao = pd.read_parquet('datasets/submission.parquet')
 submissao['class'] = y_skl_final
 submissao.to_csv('submissoes/submissao_sklearn_'+nome_modelo+'.csv', index=False)
 
@@ -231,20 +234,20 @@ modelo_cat = 'CatBoostClassifier'
 catboost = CatBoostClassifier(cat_features=categories,
                               loss_function='CrossEntropy',
                               eval_metric='MCC',
-                              iterations=1000,
-                              learning_rate=0.101,
+                              iterations=4000,
+                              learning_rate=0.081,
                               random_seed=1,
-                              bootstrap_type='MVS',
-                              bagging_temperature=5,
-                              depth=16,
+                              bootstrap_type='Poisson',
+                              bagging_temperature=6,
+                              depth=9,
                               early_stopping_rounds=200,
                               thread_count=12,
-                              task_type='CPU',
-                              target_border=0.51,
+                              task_type='GPU',
+                              target_border=0.05,
+                              gpu_ram_part=0.95,
+                              gpu_cat_features_storage='GpuRam',
                               grow_policy='Depthwise',
                               min_child_samples=39,
-                              gpu_ram_part=0.95,
-#                              max_leaves=32,
                               boosting_type='Plain'
                               )
 
@@ -274,8 +277,8 @@ else:
     realiza_registro_cat()
 
 # Estimates the challenge values, creating the file for submission on Kaggle
-y_cat_final = catboost.predict(teste_na)
-submissao = pd.read_parquet('submission.parquet')
+y_cat_final = catboost.predict(teste)
+submissao = pd.read_parquet('datasets/submission.parquet')
 submissao['class'] = y_cat_final
 mask1 = submissao['class'] == 1
 mask0 = submissao['class'] == 0
@@ -326,23 +329,49 @@ print(f'Score Sklearn MCC local: {score_xgb:.5f}')
 registro_geral = pd.read_csv('registros/registros_resultados.csv')
 registro_atual = pd.DataFrame([[pd.to_datetime(nome_modelo), modelo_xgb, round(score_xgb, 5)]])
 registro_atual.columns = ('Dia e Hora', 'Modelo', 'Score (MCC)')
-if registro_geral.iloc[registro_geral.shape[0]-1]['Dia e Hora'] == str(pd.to_datetime(nome_modelo)): 
+if registro_geral.iloc[registro_geral.shape[0]-1]['Dia e Hora'] == str(pd.to_datetime(nome_modelo)):
     print('Trabalhando com mesmo modelo')
 else:
     realiza_registro_xgb()
 
 # Estimates the challenge values, creating the file for submission on Kaggle
 y_xgb_final = classif_xgb.predict(teste_na)
-submissao = pd.read_parquet('submission.parquet')
+submissao = pd.read_parquet('datasets/submission.parquet')
 submissao['class'] = y_xgb_final
 submissao.to_csv('submissoes/submissao_xgbclassifier_'+nome_modelo+'.csv', index=False)
+
+
+#########################################################################
+#                                                                       #
+#                        BEGINNING OF TEST AREA                         #
+#                                                                       #
+#########################################################################
+
+# A imputação também pode ser realizada através de um modelo de classificação multiclasse,
+# faz um split de cada dataset, treina individualmente e compara. Se for bom, procede com
+# a imputação através do modelo.
+
+# Testando imputação dos valores NaN através de KNN para um melhor score
+(teste.isnull().sum()/teste.shape[0])*100
+(treino.isnull().sum()/treino.shape[0])*100
+
+imputer = KNNImputer(weights='distance',
+                     copy=False)
+imputer.fit_transform(X)
+
+#########################################################################
+#                                                                       #
+#                           END OF TEST AREA                            #
+#                                                                       #
+#########################################################################
+
 
 ###
 # AREA BELOW HERE JUST TO HELP MY WORKFLOW
 ###
 
-treino.to_parquet('treino_polido.parquet')
-teste.to_parquet('teste_polido.parquet')
+treino.to_parquet('datasets/treino_polido.parquet')
+teste.to_parquet('datsets/teste_polido.parquet')
 
 treino_y = treino_yback.copy()
 teste_y = teste_yback.copy()
