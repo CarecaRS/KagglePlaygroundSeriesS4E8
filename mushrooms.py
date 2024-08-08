@@ -1,15 +1,17 @@
 ###
 # WORK NOTES (a.k.a. 'to-do list')
 ###
-# - The parquet files (treino/teste_polido) have only categorical NaN values, all other information is already cleaned/set up.
-# - The categorical NaN values must have a proper imputation
+# - The parquet files (treino_polido/teste_polido) have only categorical NaN values, all other information is already cleaned/set up.
+# - The categorical NaN values should have a proper imputation, maybe from Anacor to estabilish correlations and get it right
+# - Try to do an ensemble model with binary values, from sklearn and catboost
+# - On CatBoost model I've already tested grow_policy (best Depth), bootstrap_type (best MVS) and I was testing learning_rate (best 0.081 so far)
 
 # Importing necessary packages
 import pandas as pd
 import numpy as np
 import os
 #import tensorflow as tf
-import io
+#import io
 import matplotlib.pyplot as plt
 from datetime import datetime
 from sklearn.ensemble import HistGradientBoostingClassifier
@@ -33,7 +35,7 @@ def modelo_tf_string(model):
 def realiza_registro_tf():
     registro_geral = pd.read_csv('registros/registros_resultados.csv')
     registro_geral = pd.concat([registro_geral, registro_atual], ignore_index=True)
-    registro_geral.to_csv('registros/registros_resultados.csv', index=False) 
+    registro_geral.to_csv('registros/registros_resultados.csv', index=False)
     with open("./registros/registros_modelagem.txt", "a") as registros:
         registros.write("########## INÍCIO DE REGISTRO - MODELO TensorFlow " + nome_modelo + " ##########\n")
         registros.write("\nInformações geradas em " + datetime.now().strftime("%d-%m-%Y") + " às " + datetime.now().strftime("%H:%M") + ".\n")
@@ -47,12 +49,13 @@ def realiza_registro_tf():
 def realiza_registro_skl():
     registro_geral = pd.read_csv('registros/registros_resultados.csv')
     registro_geral = pd.concat([registro_geral, registro_atual], ignore_index=True)
-    registro_geral.to_csv('registros/registros_resultados.csv', index=False) 
+    registro_geral.to_csv('registros/registros_resultados.csv', index=False)
     with open("./registros/registros_modelagem.txt", "a") as registros:
         registros.write("########## INÍCIO DE REGISTRO - MODELO Sklearn HistGBC " + nome_modelo + " ##########\n")
         registros.write("\nInformações registradas em " + datetime.now().strftime("%d-%m-%Y") + " às " + datetime.now().strftime("%H:%M") + ".\n\n")
         registros.write('Parâmetros do modelo:\n')
         registros.write(str(skl_hgb.get_params()))
+        registros.write(f"\n   Normalização dos valores numéricos: {norm}")
         registros.write("\n\n   --> Score local do modelo (MCC): " + str(round(score_skl, 5)))
         registros.write("\n\n########## FINAL DE REGISTRO - MODELO Sklearn HistGBC " + nome_modelo + " ##########\n\n\n\n")
     print('Novo registro realizado com sucesso!')
@@ -67,6 +70,7 @@ def realiza_registro_cat():
         registros.write("\nInformações registradas em " + datetime.now().strftime("%d-%m-%Y") + " às " + datetime.now().strftime("%H:%M") + ".\n\n")
         registros.write('Parâmetros do modelo:\n')
         registros.write(str(catboost.get_params()))
+        registros.write(f"\n   Normalização dos valores numéricos: {norm}")
         registros.write("\n\n   --> Score local do modelo (MCC): " + str(round(score_cat, 5)))
         registros.write("\n\n########## FINAL DE REGISTRO - MODELO CatBoost Classifier " + nome_modelo + " ##########\n\n\n\n")
     print('Novo registro realizado com sucesso!')
@@ -75,12 +79,13 @@ def realiza_registro_cat():
 def realiza_registro_xgb():
     registro_geral = pd.read_csv('registros/registros_resultados.csv')
     registro_geral = pd.concat([registro_geral, registro_atual], ignore_index=True)
-    registro_geral.to_csv('registros/registros_resultados.csv', index=False) 
+    registro_geral.to_csv('registros/registros_resultados.csv', index=False)
     with open("./registros/registros_modelagem.txt", "a") as registros:
         registros.write("########## INÍCIO DE REGISTRO - MODELO XGBoost Classifier " + nome_modelo + " ##########\n")
         registros.write("\nInformações registradas em " + datetime.now().strftime("%d-%m-%Y") + " às " + datetime.now().strftime("%H:%M") + ".\n\n")
         registros.write('Parâmetros do modelo:\n')
         registros.write(str(classif_xgb.get_params()))
+        registros.write(f"\n   Normalização dos valores numéricos: {norm}")
         registros.write("\n\n   --> Score local do modelo (MCC): " + str(round(score_xgb, 5)))
         registros.write("\n\n########## FINAL DE REGISTRO - MODELO XGBoost Classifier " + nome_modelo + " ##########\n\n\n\n")
     print('Novo registro realizado com sucesso!')
@@ -210,7 +215,7 @@ submissao.to_csv('submissoes/submissao_sklearn_'+nome_modelo+'.csv', index=False
 
 
 ###
-# CATBOOST
+# CATBOOST CLASSIFIER
 ###
 
 # CatBoost needs the target variable to be binary (1 or 0), so the backup and transformations below
@@ -224,21 +229,22 @@ teste_y[teste_y == 'p'] = 0
 nome_modelo = datetime.now().strftime("%Y%m%d-%H%M")
 modelo_cat = 'CatBoostClassifier'
 catboost = CatBoostClassifier(cat_features=categories,
-                              loss_function='Logloss',
+                              loss_function='CrossEntropy',
                               eval_metric='MCC',
                               iterations=1000,
-                              learning_rate=0.011,
+                              learning_rate=0.101,
                               random_seed=1,
                               bootstrap_type='MVS',
                               bagging_temperature=5,
-                              depth=17,
-                              early_stopping_rounds=500,
+                              depth=16,
+                              early_stopping_rounds=200,
                               thread_count=12,
                               task_type='CPU',
                               target_border=0.51,
-                              grow_policy='Lossguide',
+                              grow_policy='Depthwise',
                               min_child_samples=39,
-                              max_leaves=32,
+                              gpu_ram_part=0.95,
+#                              max_leaves=32,
                               boosting_type='Plain'
                               )
 
@@ -262,7 +268,7 @@ print(f'Score CatBoost MCC local: {score_cat:.5f}')
 registro_geral = pd.read_csv('registros/registros_resultados.csv')
 registro_atual = pd.DataFrame([[pd.to_datetime(nome_modelo), modelo_cat, round(score_cat, 5)]])
 registro_atual.columns = ('Dia e Hora', 'Modelo', 'Score (MCC)')
-if registro_geral.iloc[registro_geral.shape[0]-1]['Dia e Hora'] == str(pd.to_datetime(nome_modelo)): 
+if registro_geral.iloc[registro_geral.shape[0]-1]['Dia e Hora'] == str(pd.to_datetime(nome_modelo)):
     print('Trabalhando com mesmo modelo')
 else:
     realiza_registro_cat()
@@ -278,20 +284,8 @@ submissao.loc[mask0, 'class'] = 'p'
 submissao.to_csv('submissoes/submissao_catboost_'+nome_modelo+'.csv', index=False)
 
 
-#
-#
-#
-#
-#
-
-
 ###
-# ÁREA DE TESTES
-###
-
-
-###
-# XGBOOST
+# XGBOOST CLASSIFIER
 ###
 # XGBoost also needs the target variable to be binary
 treino_yback = treino_y.copy()
@@ -343,7 +337,9 @@ submissao = pd.read_parquet('submission.parquet')
 submissao['class'] = y_xgb_final
 submissao.to_csv('submissoes/submissao_xgbclassifier_'+nome_modelo+'.csv', index=False)
 
-
+###
+# AREA BELOW HERE JUST TO HELP MY WORKFLOW
+###
 
 treino.to_parquet('treino_polido.parquet')
 teste.to_parquet('teste_polido.parquet')
